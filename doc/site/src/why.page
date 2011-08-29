@@ -1,0 +1,24 @@
+---
+title: practice
+inMenu: true
+directoryName: practice
+---
+h2. Why? ~_(could be fun)_~
+
+I'm basically trying to create a technical solution to a social problem
+started with another technical solution created by people who didn't understand
+how their technical solutions create social problems because they believe
+you can't create a technical solution to a social problem.
+
+The Utu project is simultaneously an experiment in three things:
+
+# An alternative simplified protocol design that counters the IETF and W3C dogma.
+# An attempt to use technology to improve social interactions.
+# An experiment in how technology changes the way people behave.
+
+These are things that interest "me":http://www.zedshaw.com/ but hopefully
+will inspire and help other people.  If anything, I hope it at least gets
+people talking about the social impact of the technologies they create.
+
+"You can download it yourself to play with it.":/download.html
+"Or, read on to understand more about Utu.":/theory.html

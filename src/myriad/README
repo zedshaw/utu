@@ -1,0 +1,8 @@
+This is the very minimum of the myriad library you need to build
+the utuminimal library.  If all you want to do is use enough of 
+Utu to then build a binding for your language, then don't install
+myriad and you'll get a standalone libutuminimal.
+
+This libutuminimal library only has the crypto and stackish processing
+elements needed.
+

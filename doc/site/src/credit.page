@@ -1,0 +1,54 @@
+---
+title: credit
+inMenu: true
+directoryName: credit
+---
+h2. Credits ~_(the Utu story)_~
+
+Utu is a pearl created by the irritants of the Internet.  
+
+I needed people like
+"dalvenjah":http://web.archive.org/web/20011221090705/www.dalnet.org/history/
+running DALnet as motivation for replacing IRC.  I needed the griefers who
+destroyed "Lambda Moo":http://en.wikipedia.org/wiki/A_Rape_in_Cyberspace to
+make me considered the nature of "open" communities and the rule of law in
+social interactions.  I needed the "slashdot
+trolls":http://www.kuro5hin.org/story/2007/3/30/22320/3779, mailing list
+fanbois, "zombie botnets":http://en.wikipedia.org/wiki/Botnet, spammers, and
+other "internet dust-bunnies":http://www.fudco.com/habitat/archives/000058.html
+to inspire me to ask this one question:
+
+  "Can technology find a balance between anarchy and dictatorship?"
+
+I also have to thank the "Ruby":http://www.ruby-lang.org/ community for
+simultaneously being both a great community and one run by a bunch of evil autistic
+robots who should never be in charge of an IRC channel.  If it weren't for the
+Nazi assholes booting me out of IRC in a rage of jealousy for the success of my
+Ruby projects while they slaved away in obscurity I wouldn't have been
+motivated to start Utu.  If it also weren't for the really great people who I
+wanted to continue talking with in the Ruby community I might have just left
+for another place to have fun.
+
+The name Utu came from an article I read about an actor from New Zealand who
+took on Amazon's one-click patent and actually found prior art enough to get
+the patent office to review the patent.  He did this because Amazon took four
+days to send him a book instead of three.  In the middle of the article he
+says, "it was time for a bit of Utu."
+
+Utu is the Maori word for a tribal system of justice that involved the near
+trading of revenge and payment for deeds done by others.  The system keeps
+everything balanced in Maori society by enforcing a controlled system of
+retribution and favor between tribal members.  It was the perfect name for my
+system.  It also is the name of the Sumerian Sun god who watches over the dead,
+and it's a name for various systems of retribution in some parts of Africa.
+
+Utu wouldn't exist without the Maori people also, or the man who took on Amazon
+in a perfect display of how one really pissed off dude can make a difference.
+
+There's plenty of people who've shot me ideas, encouragement, and tried out
+initial releases as I worked on them.  Thanks goes out to all of you, even if I
+don't name you directly.
+
+Finally, to the "caboose fan club":http://blog.caboo.se/ for being the best
+test users for just this kind of project.
+

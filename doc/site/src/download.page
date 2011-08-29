@@ -1,0 +1,292 @@
+---
+title: download
+inMenu: true
+directoryName: download
+---
+h2. Download ~_(it's GPL [kiss my ass .com])_~
+
+Currently the project is only for developers to play with, so that means
+if you have no idea how to download source packages, run build tools,
+and have root access to install software Utu is not for you yet.
+
+This doesn't mean you have to contribute code to play with Utu.  It just
+means that I'm looking for experts to play with it and try it out at this
+point.
+
+h2. Installing iHate for OSX
+
+*BIG NEWS* : Michael Basnight worked on the first real Utu client called "iHate":http://ihate.rubyforge.org/
+written for *Mac OSX* using "RubyCocoa":http://rubycocoa.sourceforge.net/doc/ to set it up.
+
+In order to play with Utu, you just have to follow these simple instructions:
+
+# Download iHate from "the downloads section":http://rubyforge.org/frs/?group_id=3605&release_id=11793
+# Open the .dmg and copy the iHate application to your Applications directory.
+# Double click it like any other application to run it.
+# It'll join the "help" room and you're done.
+# Use a slash (/) to join any other room.  Like /testing to join the testing room.
+
+And have fun.  We're all in there, and this is super rough so try to break it and 
+give us feedback.
+
+
+h3. Screenshot of iHate
+
+Here's the first screenshot of me screwing up the screenshot:
+
+!/images/iHate.jpg(iHate screenshot)!
+
+h2. Installing From Source
+
+You'll need to install some gear before you start:
+
+* "LibTomCrypt":http://libtom.org/files/crypt-1.17.tar.bz2
+* "LibTomMath":http://libtom.org/files/ltm-0.41.tar.bz2  or  "TomsFastMath":http://libtom.org/files/tfm-0.12.tar.bz2
+* "cmake":http://www.cmake.org/HTML/Index.html
+* "Ruby":http://ruby-lang.org/
+
+You can use your system's default packaging system to install Ruby and cmake, but
+you need to build LTC (LibTomCrypt) and LTM (LibTomMath) from source in order
+to get the build right.
+
+I tell people to install LTC (LibTomCrypt) and LTM (LibTomMath) from source
+directly.  This is usually because the current packaging systems don't build
+LTC correctly and instead fail to indicate what math lib it uses.  You can try
+out TFM (TomsFastMath) on your machine if you like, but it's not necessary
+and usually has build problems on some architectures (like OSX anything).
+
+h3. Building LibTom(Crypt|Math)
+
+First build LTM from source and install it:
+
+  $ wget http://libtom.org/files/ltm-0.41.tar.bz2 
+  $ tar -xjvf ltm-0.41.tar.bz2
+  $ cd libtommath-0.41
+  $ make
+  $ sudo make install
+
+Next, you have to build LTC and tell it to use LTM specifically:
+
+  $ wget http://libtom.org/files/crypt-1.17.tar.bz2
+  $ tar -xjvf crypt-1.17.tar.bz2
+  $ cd libtomcrypt-1.17
+  $ CFLAGS="-DLTM_DESC" sudo make NODOCS=1 install
+
+The NODOCS=1 will prevent the make from building all the docs.  The LTC
+documentation is excellent so I recommend it, but this involves installing all
+of tetex and latex just to get the docs.
+
+It is *very* important that you *NOT* install both TFM *and* LTM.  I'll say it
+one more time just to make sure you get it through your tiny little brain.  I'll
+do it Yoda style:  Both install TFM LTM *NOT* you will.
+
+h2. Building The Mendicant
+
+These instructions assume you're just interested in building the client
+software (called the utumendicant).  The Utu Hub (server) builds on most Unix
+platforms, but has issues on OSX because of their dumbass linker.  Talk to
+Apple about properly linking against functions in static libraries (or whatever
+the hell they're calling them these days).  The utumendicant and the Ruby
+client library work on nearly any platform that has "select":http://www.die.net/doc/linux/man/man2/select.2.html
+and can build LTC and LTM.
+
+To get the source for Utu to build the *client* you just do this:
+
+ $ wget http://utuprotocol.info/releases/utu-current.tar.gz
+ $ tar -xzvf utu-current.tar.gz
+ $ cd utu-VERSION  # note: VERSION will be something like 0.1
+ $ cmake .
+ $ make
+ $ sudo make install
+
+Assuming everything was done right it should all build.  Shoot me
+"email":mailto:zedshaw-NO-SPAM@zedshaw.com if you have problems.
+
+When all is done you should be able to do this:
+
+ $ utumendicant
+ usage: utumendicant socket
+
+Which means it installed correctly.  Now you need to try doing your first
+connect.
+
+h3. WTF Is A Mendicant?
+
+The Utu "mendicant" is a play on the word "supplicant" used by some other
+security systems.  Out of fear that this common English word is trademarked
+I decided to call the Utu version of the same idea a mendicant and then use
+a totally different architecture so that it's not violating any patents.
+
+The results of your build process above makes a program called utumendicant.
+This program handles all the bullshit of the cryptography, connection handshake,
+identity management, and hate calculations so that your program doesn't have 
+to deal with it.  The idea is that, rather than have you bind to a C library
+and potentially get the cryptography all wrong, you simply fire up the mendicant
+and interact with it as a sort of slave proxy.
+
+How the mendicant works is you create a Unix Domain socket (soon to add named
+pipes as well) in *server* mode using your favorite language.  Then, you start
+the utumendicant program with the name of the socket it should connect on.
+Once you receive the connect from the mendicant you can stop accepting on the 
+socket and start sending your messages.
+
+In order to make this process secure you have to make sure the domain socket is
+read-write only by you (usually via the umask function call).  After that you
+just send a simple config with your keys and what server to connect with and
+then send your messages.
+
+The included Ruby library is the first demonstration of using the Utu mendicant
+without any C code involved.  It's not Ruby specific and you could probably read
+the source in about an hour to understand it.  Feel free to write alternative
+libraries that use the mendicant to connect in the same way.
+
+h3. Mendicant and GPL Licensing
+
+In order to protect the Utu project from people who would try to take the source
+and game it, it was necessary to GPL the whole project.  The GPL has much better
+enforcement and legal standing than other licenses, so I plan to use it in the
+case where a predatory entity has figured out how to attack Utu algorithmically.
+If they do then they either have to do it completely from scratch *or* they must
+release their changes under the GPL.
+
+It's also the standard that when you're dealing with cryptography that you need
+as many people reviewing the source as possible.  Keeping the source open gives
+everyone better assurance that the crypto was done right (hopefully it was).  They
+can also submit fixes if they find possible attacks.
+
+However, if the software is GPL licensed then people will be restricted from using
+it in their software either commercially or otherwise licensed.  With the mendicant
+you can license your software however you want, since you're connecting to the
+network through a separate proxy process.  As long as you don't alter the source to
+the mendicant you should be good.  Make a single change and it must be released.
+
+
+h2. Connecting With Ruby
+
+For your first connect, just hit the Utu hub and try to hang out or talk
+with people:
+
+ $ cd src/lang/ruby/utuclient
+ $  ruby -Ilib examples/simple_chat.rb myutu.name 10000 zed
+ What room do you want? help
+
+Now you're chatting in the help room and you can then hit CTRL-D to say
+goodbye.  You can also try the Tk client sample:
+
+ $ ruby -Ilib examples/tk_client.rb myutu.name 10000 zed help
+
+And hitting ESC will exit the Tk client.
+
+These two programs are super hack examples of simple scripts that just let
+you chat.  Take a look at the source and see if you can do better.
+
+One word of warning, the "RailsMachine":http://railsmachine.com/ network
+will kill idle connections and currently the Hub does not use a ping keep-alive
+yet.  If you get disconnected just deal with it for now.
+
+h2. Building The Hub
+
+The Utu source also includes the current Hub server that you can setup to 
+create your own Utu service.  The only caveat is that it uses a second library
+of convenience functions I use called Myriad to make developing fast little
+servers easier.  This "Myriad":http://utuprotocol.info/repos/myriad/ library
+uses the ucontext function calls to create a coroutine system called libtask
+written by Russ Cox.
+
+The libtask coroutines work on most systems, and Russ spent the extra effort
+to implement ucontext on systems that didn't have it, but it doesn't build
+everywhere.
+
+If you can't build Myriad then you can't run the Hub on your system.  Them's the
+breaks.
+
+First you need to build Myriad by grabbing the source via darcs:
+
+ $ darcs get http://utuprotocol.info/repos/myriad/
+ $ cd myriad
+ $ cmake .
+ $ make
+ $ make install
+
+Once you have Myriad built then you need to reset the Utu build and
+rebuild that:
+
+ $ cd utu-VERSION   # remember VERSION is like 0.1
+ $ rm CMakeCache.txt
+ $ cmake .
+ $ make
+ $ sudo make install
+
+This time it should should install both the utumendicant program and the
+utuserver program.
+
+h2. Running The Hub
+
+You can now startup the Utu Hub on your localhost (127.0.0.1) and try 
+connecting to it:
+
+  $ utuserver -a 127.0.0.1 -p 10000 -n utu -m -k
+
+This will start the server and create a file utuserver.key which you can use
+later when you start the server:
+
+  $  utuserver -a 127.0.0.1 -p 10000 -n utu -k
+
+You can also rename the file to be anything else and pass that as an option to
+-k if you need.  This is necessary when you put the server key in a location
+like /etc.
+
+h2. Hub As A Daemon
+
+The Hub is designed to only be able to run as a daemonized server in a chroot
+environment.  What this means is when you run it as you did previously it just
+assumes you're testing it and prints messages to the screen.  When you want to
+run it as a real server that is in the background you then need a directory
+that utuserver can chroot into.
+
+A chroot jail is a technique that forces the server to have it's root in a 
+different location, such as /var/run/utu.  To the server, this location is
+the / root filesystem.  The idea is that if the server is compromised then
+an attacker has a tougher time of "breaking out" of this jail to get at the
+rest of the system.
+
+To start the server as a daemon do this:
+
+  $ sudo cp utuserver.key /etc/utuserver.key
+  $ sudo mkdir /var/local/utu
+  $ sudo utuserver -a 0.0.0.0 -p 10000 -n utu -d /var/run/utu -u 99 -g 99 -k /etc/utuserver.key -l /var/log/utu.log
+
+If you don't have /var/local then pick another location that's root only.  You should take
+a look in /etc/passwd to make sure that 99 is the UID and GID of the nobody user/group.
+
+After this the server should be running on all interfaces and you can connect to it remotely.
+It will also be running as nobody, and will be chroot into the /var/run/utu directory.  It also
+won't have the /etc/utuserver.key file open anymore since that's read before the chroot.
+
+
+h2. Full Hub Options
+
+The full list of options for the Hub are:
+
+* -a addr : The address to bind on.
+* -p port : Port to open.
+* -n name : The server's name (every peer has a name).
+* -d chroot : Directory to chroot into.
+* -k [keyfile] : Server key file to use (created with -m first)
+* -m : Make a key file, just give -k without an option.
+* -u uid -g gid : UID and GID to drop privileges after chroot. 
+* -l server.log : The server's log file.
+
+If you put in any invalid option combinations then the utuserver will complain
+appropriately.
+
+
+h2. Contributing
+
+The Utu project is completely open source GPL software.  Anyone interested
+in contributing can, and it's fairly easy.
+
+Read the "project page":/project.html to get information on how you can
+contribute.  While I don't give people direct access to the darcs 
+repository for security reasons, I accept all patches from people using
+darcs send.

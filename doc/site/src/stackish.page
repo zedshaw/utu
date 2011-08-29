@@ -1,0 +1,467 @@
+---
+title: Stackish
+inMenu: true
+directoryName: Stackish
+---
+h1. Stackish
+
+_NOTE: This is an update of an essay from "my blog":http://www.zedshaw.com/ for Utu._
+
+Stackish is a "data language" that is written more like FORTH than like other
+languages. This means that everything is actually ordered backwards, and the
+majority of processing happens with an implicit stack. As a data language, it
+is better for encoding data structures and their contents like strings and
+numbers. As a stack language, you construct the Stackish file inverted so that
+the structure is built directly rather than relying on parsers and such. For
+those people who are familiar with s-expressions, you would write:
+
+      @[ [ "hello" 1 child root@
+
+What you should notice is that there's no closing brackets, only opening
+brackets with node names and content. This is allowed based on a simple trick
+that I'll explain later.
+
+Since the serializer and deserializer (or scanner and emitter) is processing a
+language that is working an implied stack, and is already in stack order,
+there's no need for a lot of parsing machinery. This makes Stackish easier to
+parse since all you need is a scanner to recognize each token, and a set of
+simple stack operations to build the structures. With nothing more than a
+scanner and a set of simple rules and operations you can encode and decode
+Stackish source almost directly. You can even easily convert it to any other
+format.
+
+
+h2. A Bit Of Background
+
+Originally, I did Stackish as a satire similar to
+"INTERCAL":http://catb.org/~esr/intercal/ and other great faux languages not
+intended for actual use. After I wrote it and started to play with it I found
+that I actually do like it for a data language. I wouldn't be so bold as to
+cram it down a student's throat as a full programming language like some other
+people have done, but amazingly enough it does have some advantages. In the
+end, it's a perfectly valid XML _alternative_
+
+
+That's an _alternative_ not a _replacement_. I get really annoyed when people
+put something forward as an alternative when they actually mean a replacement.
+An alternative in my mind means another choice while a replacement is intended
+to Stackish is not a replacement for XML but in some situations it will work as
+an alternative. I think Stackish has some advantages over XML that are similar
+to s-expressions, and some advantages over s-expressions based on what Schemers
+like. But I would never claim it is better than XML for all situations, and
+maybe not even most situations.
+
+
+h2. The FORTH Connection
+
+
+FORTH is an interesting language created by "Charles
+Moore":http://www.colorforth.com/bio.html in 1968. The fundamental difference
+with FORTH was that it worked as a stack with words being operations. This is
+different from other languages which require the source to be processed before
+operations are performed. With FORTH, the source is processed "on line" and
+since it is organized as a series of stack operations the processing is very
+minimal. The second aspect of FORTH that's important is that operations are not
+called functions but are called "words". A FORTH programmer will typically
+approach a programming problem as if he/she is building a language to describe
+a solution. They'll then create words that are processed in order to create the
+full program. Think of it as a very big RPN calculator.
+
+
+As an example, let's say we have a function in C of <code>prompt(message, timeout,
+default)</code> to get input from a user within a timeout. In Scheme you would more
+likely do something like <code>(prompt (message timeout default))</code> or even <code>(prompt
+message timeout default)</code>. In FORTH you would do something more like <code>default
+timeout message prompt</code>. In the Scheme and C code a compiler or interpreter
+cannot call the "prompt" function until it sees all of the parameters, and it
+doesn't know if the parameters are complete until it sees the closing ')'
+character. With FORTH and other stack languages the "parameters" to prompt are
+actually pushed onto the stack directly as they are encountered, so when prompt
+is finally called it's ready to go. This inversion of the input makes things
+very easy to process.
+
+
+
+
+
+h2. Meanwhile ... Back At The Lab
+
+
+Stackish takes the FORTH way of organizing operations in "stack order" and adds
+a Lisp like structuring of the source to allow for arbitrary structures. It
+also attempts to remove any unnecessary punctuation in order to simplify the
+syntax even further. The end result is a very tight syntax that is incredibly
+easy to parse and generate consistently.
+
+
+Stackish is best understood by exploring the tokens allowed, then the
+processing rules, and finally examples of how to write Stackish.
+
+
+
+h2. Scanning Tokens
+
+
+
+The following table describes the small set of tokens that a Stackish scanner
+will handle:
+
+
+h3. Stackish Tokens
+
+|_.Token|_.Description|
+|NUMBER|A simple integer type that's just any series of digits.|
+|FLOAT|A simple floating point type.|
+|STRING|A string is double quotes with anything inside that's 
+not a " or newline character.  You can include \n and \" to include these characters.|
+|MARK|Marks a point in the stack that demarcates the boundary for a 
+nested group.|
+|WORD||Marks the root node of a group, with
+the other end being the nearest MARK.|
+|GROUP||Acts as the root node of an anonymous group.|
+|ATTRIBUTE|Assigns an attribute name to the previously processed
+node.  This means that just about anything can be an attribute, unlike in XML.|
+|BLOB|A BLOB is unique to Stackish and allows you to record
+any content (even binary content) inside the structure.  This is done by pre-sizing the 
+data with the NUMBER similar to Dan Bernstein's netstrings setup.|
+|SPACE|White space is basically ignored.  This is interesting because
+since Stackish is serialized consistently this means you can use \n as the separation character
+and perform reasonable diffs on two structures.|
+
+
+Each token is processed by a separate processing rule which builds the
+structure. It's not entirely necessary to use a stack to process the input, and
+the reference implementation actually doesn't use a stack at all. The reference
+implementation simply builds the structure directly using parent and child
+links inside the nodes. A stack is useful when translating or processing the
+input for other purposes.
+
+
+You can expect the format for FLOAT and NUMBER to improve to encompass common
+things like negative numbers and other notation.
+
+
+The following Stackish is converted into tokens like so:
+
+@[ "child" [ 200 '4:like' "I" "hello" things root@
+
+@MARK STRING MARK STRING STRING BLOB NUMBER WORD WORD@
+
+You can probably figure out from this how it would be structured. The WORD
+_things_ is associated with the MARK right after "child" which makes the
+subgroup ["hello" "I" '4:like' 200]. Then the WORD _root_ is associated with
+the very first MARK and contains [ "child" things ] structure. As a tree it
+looks like this:
+
+* root
+** things
+*** "hello"
+*** "I"
+*** '4:like'
+*** 200
+** "child"
+
+How all of this is done depends on a set of simple processing rules for each
+token that are actually similar to SAX events in the XML world, but much
+simpler.
+
+
+h2. Processing Rules
+
+h3. Stackish Processing
+
+|_.Token|_.Operation/Rule|_.Description|
+|NUMBER, FLOAT, STRING, BLOB|Push|Data element (content in XML) are simply pushed onto the stack when encountered.|
+|MARK|Push|Even though a MARK is pushed onto the stack for later, it's
+listed here as a special case since it is actually a structural entity.|
+|WORD|Reduce, Name, Push|When a WORD is encountered, simply pop all elements
+off the stack until a MARK is popped off, building a group as you do so.  Name the group
+and then push that back onto the stack.|
+|GROUP|Reduce, Push|Handled exactly the same as WORD except that the
+final group is not named.|
+|ATTRIBUTE|Pop, Name, Push (Name Top)|This basically leaves the top
+element on the top, but sets its name to the attribute.  This means that any type of
+structure except WORD node can be an attribute, and that attributes are just children
+like everything else.  This lets you build much more complicated structures, basically
+giving you the ability to assign entire structures to an attribute.|
+
+These simple rules require only a few basic operations which even assembler on
+nearly any processor should have. The reference implementation also does all
+operations without using a stack to prove that it's not entirely necessary. The
+reference implementation uses a single Node element that has a link to the
+parent, first child, and next sibling. This creates a binary tree which is
+traversed during the operations to construct the final structure.
+
+A primary thing to note is that we make an assumption that a WORD always means
+we have named a group node and there's no need for a closing ']'. This implicit
+assumption removes one frequently repeated character from the input and output
+which isn't necessary. The ']' now can be distinct and mean only an anonymous
+group, which removes some ambiguity in the processing. This also lets us assign
+an anonymous group to an attribute by placing the attribute after the group
+like so: @[ [ "test" "test" ] @mystuff root@. This actually is on group named
+"root" (a WORD), and the inner group is assigned to the @mystuff attribute of
+root.
+
+
+h2. Converting From A Tree to Stackish
+
+Making a Stackish stream from a typical tree structure (a binary tree works
+best) is very easy. You basically traverse it in post order with siblings
+first, children second. This means you traverse the tree to the bottom far
+right and then work your way up to the final root. This is probably the biggest
+disadvantage of Stackish since it means that you have to usually do recursive
+processing. 
+
+The processing rules for serializing are fairly simple and are based on
+traversing a tree where each node has three links: parent, child, sibling. The
+parent link goes to the parent, the child link goes to the first child, and
+sibling goes to the first sibling. The following table summarizes the encoding
+rules:
+
+h3. Stackish Serialization Rules
+
+|_.Condition|_.Action|_.Description|
+|Has Sibling|Recurse Sibling||
+|Node Type GROUP|Write '['||
+|Has Child|Recurse Child||
+|Node Type BLOB|Write 'NUMBER:...'||
+|Node Type STRING|Write "..."||
+|Node Type NUMBER or FLOAT|Write It||
+|Before Return|Write Node Name or ']' if None||
+
+These rules are processed in order and produce a consistent canonical form as
+long as a space is printed after each element. Check out the _Node_dump()_
+function in the reference implementation for exact code on how this is done.
+It's not that difficult.
+
+
+h2. Interesting Observations
+
+Here's some things I've noticed since playing with Stackish. Some of these are
+interesting, but for the most part I like the way Stackish is now.
+
+h2. Normal Rather Than Stack Order
+
+The first observation about Stackish is that it's not entirely necessary to
+process the tree in stack order. Let's say you have the short bit of Stackish:
+
+@[ [ "data" child root@
+
+and you want to process it from rear to front or so it is more like this:
+
+@root child "data" ] ]@
+
+Well, almost all of the same rules would apply, just in the reverse. You'd
+still make a root node, still add child to it, and still add "data" to child
+and so on. The difference of course being that the root and child nodes get
+named when they're created rather than after. In the end it's still pretty much
+the same and you still don't need a parser.
+
+Where the normal order (in contrast to stack order) falls down is when you add
+attributes which can contain any other structure in them. Let's say in Stackish
+we want to add an attribute to the previous example that contains a group of
+two numbers:
+
+@[ [ "data" [ 2 1 ] @numbers child root@
+
+This basically creates an attribute of the child node named @numbers that
+contains a group with 1 and 2 in it. Now, if we place this in normal order we'd
+have:
+
+@root child @numbers [ 1 2 ] "data" ] ]@
+
+You might be able to see where it gets sticky. The problem lies in the fact
+that after we read the @numbers attribute, we now have to _recursively_ process
+the following group as if it stands alone. Since we don't know when the [ 1 2 ]
+group actually ends, we're forced to do odd special case handling or limit what
+can come immediately after a number. This also means we need at least 1 level
+of look-ahead to handle the @numbers case. In the end it turns into at least a
+minimal parser just to handle this, and there are other situations where it
+becomes apparent.
+
+In contrast, Stackish and stack ordering does not have the same problem because
+the [ 1 2 ] group is already fully constructed and known when we encounter the
+@numbers attribute. We already know what's supposed to go into the @numbers
+attribute so it's just a simple name assign and we're on our way.
+
+
+h2. Distinct Token Meaning
+
+One thing that makes Stackish so easy to process is that each token has one
+distinct meaning and one distinct structure. For example, the '(' character in
+s-expressions is used distinctly for creating lists, but in actuality it
+semantically means either "list with name" like in @(root (child "stuff"))@ vs.
+@( (child "stuff"))@. Even though '(' means list the second structure is
+entirely different to most s-expression users, and thus semantically '(' has
+two uses.
+
+In contrast Stackish has '[' as starting a list, and WORDs (like root) starting
+named lists. This distinction makes processing Stackish much easier since the
+processor can immediately handle the distinct cases without extra logic and
+checking.
+
+
+h2. Knowing When To End
+
+Another interesting thing about the Stackish way of ordering input is that it
+is able to detect when a structure is not complete and return to allow the
+input to be continued. The reason is simply because, at the end of processing
+there should be only one item on the stack which is the root element. In the
+reference implementation I don't use a stack but instead keep track of the
+current node and the root node. If the current and root node don't match at the
+end of the input then we're not done yet.
+
+As an example, let's say I have the following incomplete structure: 
+
+@[ [ "data" child@
+
+The structure is incomplete because the [ (MARK) and WORD tokens do not
+balance. I know that I need at least one more WORD or GROUP token to finish the
+structure. A Stackish processor only needs to scan the stack or walk up the
+unfinished tree to the root in order to figure out how many structural elements
+are missing. Also important is the fact that the processor can easily return
+and indicate that it needs more data to finish the structure.
+
+Why is this important? It makes it much easier to write an incremental data
+parser in situations such as network I/O where the amount of data received is
+unreliable. It also allows you to read a stream of structures without having to
+read the entire input. You can read only enough to create a rooted structure,
+and then return, leaving the remaining input for another call. This is very
+important in network I/O where being able to send a batch of requests or
+documents is much better than one at a time. For example, XML has a very hard
+time handling streamed data since it's difficult to really know when XML is
+finished.
+
+
+h2. Stackish Is Diff Friendly
+
+Since Stackish has a fairly consistent serializing and deserializing process,
+and you can put \t \n or ' ' as a token separator, you can get much better
+diffs and even tokenize the diff results to get an almost semantic diff. XML is
+much more difficult to process in this way, usually requiring specialized XML
+diff algorithms and tools.
+
+To improve the diff results, I would probably want to add an additional set of
+rules such as attributes are always placed at the top of a node and are always
+alphabetically organized, but it's not entirely necessary. I'm still interested
+in comparing the diff output against canonical XML and other methods.
+
+
+h2. Speed
+
+My rough experimental results shows that Stackish is actually about twice as
+fast as the "fastest s-expression implementation":http://sexpr.sourceforge.net/
+I could find. The s-expression is the one to beat for speed as compared with
+XML. The primary thing to keep in mind when comparing Stackish to other formats
+is that Stackish both fires events as in SAX _and_ builds an entire fully
+functional binary tree structure with back parent links. In comparison, the
+above sexpr project only builds the tree. Even then, Stackish in it's early
+stages is still twice as fast. The test involved loading large Stackish stream
+document and serializing them back to Stackish. This was compared with sexpr's
+test of doing the same loading and reprinting the s-expressions of the same
+size. Additionally, the s-expressions used in the sexpr test were generated by
+Stackish so that the comparison is as fair as possible.
+
+When comparing with XML we'd have to compare Stackish not with expat (which
+only does SAX like events), but something more like Xalan which loads the
+document entirely into memory and builds the internal DOM tree. I haven't
+measured this yet, but my past experience with several XML parsers in numerous
+languages has showed me that they can rarely compete with s-expressions. I'm
+planning to do a full analysis of the speed between various formats in the
+future.
+
+It could still be faster however.  In the current implementation I'm walking
+the tree in memory so that I don't have to use a slower push/pop style of
+processing.  This works, but it suffers a serious memory allocation and 
+deallocation penalty.  A better approach would be to use a dynamic pool
+of Node structures that are reused.
+
+Another area of improvement is in how detailed the parser works.  Right now
+it just recognizes the tokens and then calls other functions to handle the
+conversion.  With numbers it uses strtoul to convert, but the parser could
+easily do this conversion on the fly.  It also copies the names and other
+portions of the input stream into names for the Nodes, but it might be
+possible to simply modify the input string and use the names in place.
+
+Finally, serialization of canonical Stackish strings is done very 
+horribly inefficiently, but not sure how it can be sped up without
+losing some safety.  Right now it appends a series of formatted 
+strings to a bstring buffer.  It might be possible to skip much of
+this conversion for extra boosts.
+
+
+h2. SAXish Too
+
+In the reference implementation of Stackish I use a SAX style processing method
+where the scanner calls a set of function pointers to process each token it
+receives. These methods are similar in style to SAX events, and they let you
+create translators that can convert directly from Stackish to other formats and
+structures without using the intermediary Node structure. I successfully used
+the initial version of this API to convert directly from Stackish to s-
+expressions.
+
+The only thing about using the SAXish API is that you have to process
+everything in stack order, which means you probably need some form of stack
+structure. This isn't too hard to implement with the included
+"sglib":http://www.xref-tech.com/sglib/main.html ADT library (which is awesome
+by the way). Also look at the "bstring":http://bstring.sourceforge.net/ library
+(bstrlib.c) for a nice set of APIs to help you deal with strings safely in C. I
+used a combination of an sglib LIST with the bstring formatting to create the
+test Stackish to s-expression setup.
+
+
+h2. Writing Other Formats
+
+Since Stackish is very similar to s-expressions, it's possible to write almost
+any Stackish structure to an s-expression. The only two exceptions are that s-
+expressions do not support the BLOB type, and Stackish does not have atoms
+starting with ' (like 'blah). I'm considering adding the ability to put an
+"escaped WORD" which would be the same as the atom type. Included is a
+Node_dump_sexpr() function which dumps a Node structure as an s-expression.
+
+Creating XML is also possible, but there's a problem since XML does not support
+the ability to have an entire XML document assigned to an attribute. Also, XML
+attributes are considered "out of band data" and are not part of the normal
+node structure, so they are placed more or less first in the parsing stream
+before children. Stackish and s-expressions (and many other formats) can place
+attributes just about anywhere and assign just about anything to them. Because
+of this we need to treat Stackish attributes as actual XML nodes, not really as
+XML attributes. A smarter (future) XML output algorithm would detect the
+difference and write either regular XML attributes or a child tag.
+
+Another area where XML is lacking is that it doesn't have anonymous nodes.
+Stackish and s-expressions can have anonymous groups, but XML doesn't allow it.
+Because of this, Stackish must give all anonymous groups an XML tag. Take a
+look at the output of Node_dump_xml() as an example of how it is done.
+
+h2. Usage In Utu
+
+In Utu Stackish makes up the entire data payload, in both the encrypted and
+cleartext portions.  The protocol is very simple but because of Stackish it
+can encode any data structure you need to transport as well as transmit
+binary data thanks to the BLOB types.
+
+The entire Utu protocol consists of:
+
+# A 2-byte network byte ordered unsigned int for the data frame length.
+# A Stackish header that's in cleartext
+# A Stackish body that's encrypted
+
+What's interesting about the whole design is that Stackish is used to
+both encode the encrypted payload *and* the cleartext body.  This is possible
+since the BLOB type lets Utu "wrap" the encrypted body for consumption
+by the receiving end.
+
+_NOTE: The header format is still in debate._
+
+The encrypted payload would like like this:
+
+ [ 0 header 
+ [ '100:...' env 
+
+Where the ... is the encrypted data.  When the hub receives this
+it would decrypt it by parsing the _header_ _env_ nodes, validating 
+that the _header_ wasn't tampered with using AAD methods, and then
+decrypting the 100 byte payload.
+
+

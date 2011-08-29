@@ -1,0 +1,59 @@
+require 'rake'
+require 'rake/testtask'
+require 'rake/clean'
+require 'rake/gempackagetask'
+require 'rake/rdoctask'
+require 'tools/rakehelp'
+require 'fileutils'
+include FileUtils
+
+setup_tests
+setup_clean ["pkg", "lib/*.bundle", "*.gem", ".config", "ext/**/Makefile"]
+
+setup_rdoc ['README', 'LICENSE', 'COPYING', 'lib/**/*.rb', 'doc/**/*.rdoc', 'ext/utuclient/*.c']
+
+desc "Does a full compile, test run"
+task :default => [:test]
+
+version="0.2"
+name="utu"
+
+setup_gem(name, version) do |spec|
+  spec.summary = "Utu - Saving The Internet With Hate"
+  spec.description = spec.summary
+  spec.author="Zed A. Shaw"
+  spec.executables=['utuclient']
+end
+
+task :test => [:test_utu, :start_utu]
+
+task :test_utu do
+  sh %{ cd ../../../../ ; make test }
+end
+
+task :start_utu do
+  #sh %{killall -q -TERM memcheck || echo "utuserver not running"} 
+
+  # sh %{valgrind --leak-check=full --show-reachable=yes --log-file-exactly=valgrind.log ../../../../src/server/utuserver -a 127.0.0.1 -p 5000 -n utu -l utu.log &}
+  # sleep 5
+
+  sh %{killall -q -TERM utuserver || echo "utuserver not running"} 
+  sh %{../../../../src/server/utuserver -a 127.0.0.1 -p 5000 -n utu -l utu.log &}
+end
+
+task :install => [:package] do
+  sh %{sudo gem install pkg/#{name}-#{version}.gem}
+end
+
+task :uninstall => [:clean] do
+  sh %{sudo gem uninstall #{name}}
+end
+
+task :site do
+  sh %{pushd doc/site; webgen; popd}
+  sh %{scp -r doc/site/output/* @rubyforge.org:/var/www/gforge-projects/utu/}
+end
+
+task :project => [:clean, :default, :test, :rdoc, :rcov, :package, :site] do
+  sh %{scp -r doc/rdoc test/coverage @rubyforge.org:/var/www/gforge-projects/utu/}
+end

@@ -1,0 +1,64 @@
+---
+title: project
+inMenu: true
+directoryName: project
+---
+h2. Project ~_(getting code and stuff)_~
+
+More formal project management information and technical specifications
+will be available on "utuprotocol.info":http://utuprotocol.info which will
+get a huge facelift in the near future.  For now it's ultra low-fi and
+just intended to host the darcs repo and provide an RSS feed of changes.
+
+h3. Utu Project
+
+* "mailing list on google groups":http://groups.google.com/group/utuprotocol
+* "repository":http://utuprotocol.info/repos/utu/
+* "changes RSS feed":http://utuprotocol.info/repos/utu/changes.rss
+
+
+h3. Myriad Project
+
+You only need the Myriad code if you are trying to build the hub on *LINUX*.
+All other uses (client, other OS, etc.) do *not* need Myriad.
+
+* "repository":http://utuprotocol.info/repos/myriad/
+* "changes RSS feed":http://utuprotocol.info/repos/myriad/changes.rss
+
+
+h2. Submitting Patches
+
+If you want to contribute, after following the "build instructions":/download.html
+you'll need to install some additional tools:
+
+* "darcs":http://darcs.net/
+* "Ragel":http://www.cs.queensu.ca/~thurston/ragel/
+
+All the source is freely accessible via darcs and there's full "build
+instructions":/download.html you can follow to get things built on most
+platforms.
+
+I do *not* provide access to this machine by anyone else in order to maintain
+the integrity of the source, but I do accept patches sent to me via
+"darcs send":http://www.abridgegame.org/darcs/manual/node7.html#SECTION00764000000000000000 and I'll review them and include them if they're good.
+
+The process for getting the source and contributing your patches is:
+
+# Install darcs for your system.
+# Follow the "build instructions":/download.html
+# Make your changes and write tests and documentation comments.
+# run darcs send
+
+That should be it.  If everything's working right it should send the
+patch to me at "zedshaw at zedshaw.com":mailto:zedshaw-No-SPAM@zedshaw.com
+and then I'll take a look.
+
+As a general rule I do *not* accept patches from people I who have anonymous
+or semi-anonymous vanity emails.  I'll need a way to verify you're a real
+person so make sure you use an email address I can double check.  GPG keys
+are nice too, but not necessary.
+
+Of course as Utu gets more stable and useful it'll be used as the primary means
+of identification and control for this process.
+
+

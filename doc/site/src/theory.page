@@ -1,0 +1,71 @@
+---
+title: theory
+inMenu: true
+directoryName: theory
+---
+h2. How Utu ~_(Might)_~ Work
+
+The basis of Utu is that human communication on the Internet is currently
+missing three important ingredients:
+
+# Strong Identity
+# Reputation
+# Retribution
+
+Without strong identity people fall into the mob mentality so common in
+lynchings and most of the history of human stupidity.
+
+Without reputations we can't avoid people who have a history of being
+total jerk wads, but you can't have reputation without strong identities.
+
+Without retribution you can't defend yourself against the people you
+know about even if you knew their reputation was bad.  It's like a world
+where everyone is a corrupt police officer.
+
+Using cryptography we can create simple models for each of these, but
+in order to do this we need to reject some of the current trends in
+Internet server design:
+
+# To enforce identity and reputation you need *more* centralization and *less* distribution.
+# To track reputation you need to store state and data and be able to share it securely.
+# To have retribution you don't need "operators" but you do need a technology that can force people to pay a toll if someone else has a grievance with them.
+# To be able to enforce the retribution, you have to be able to identify recipients of hatred in a way that that's non-repudiated (meaning they can't claim it wasn't them).
+# To be able to handle the waves of useless griefers, spammers, and asswipes on the Internet who will hate Utu with every bone in their body, it has to assume that the client is king and must do all the work and be punished for every minor infraction with ruthless efficiency.
+
+Utu attempts to provide mechanisms for all of this using the following ideas and technologies:
+
+# Identity is based on strong ECC ("Elliptic Curve Cryptography":http://en.wikipedia.org/wiki/Elliptic_curve_cryptography) asymmetric key systems with identity.
+** P2P is for criminals.
+# The Utu Hub acts like the "Sumerian god Utu":http://en.wikipedia.org/wiki/Utu and controls all participants with ruthless efficiency.
+** Poorly written clients will not be tolerated.
+# The network will be invitation *only* without exceptions.
+** Not yet though, we're still building out the functionality and want people to try to destroy it.
+# Reputation will be freely available to all participants and will be quantified by your hate relationships with other people.
+** Everyone will know how hated you are, *and* how must you hate everyone.
+# There will be no operators, only people voting on how much they hate you.
+# There is no love.  Ever.  Just be nice.
+# Retribution is done by people calculating a form of "hashcash":http://www.hashcash.org/.
+** You pay this cryptographic hate toll *once* to the Utu Hub when you hate someone.
+** From then on, the person you hate has their average increased accordingly, and then they must pay this toll for each message.
+# You can only hate someone who's talked to you.
+** This prevents people from just hating everyone with no possible reason.
+# Proportions of hate from people you invite are applied to you.
+** Invite someone everyone hates (or make a fake account) and you pay too.
+# You can recover this hate from people you invite by simply evicting them.
+** You bring them in, you can take them out.
+# It'll never be perfect, but it'll be better than IRC.
+# Social mechanisms such as patent law, trademark law, and copyright law will be used to actively hunt down and sue spammers and griefers out of existence.
+** Not regular folks, just the most heinous abusers.
+
+h2. In The End, It's All About...
+
+improving the quality of human communication on-line without censoring them or
+infringing on their community.  Since there won't be any operators, and all
+hatred will be democratic with voters paying the same price, it will hopefully
+be fair.  Since we know who everyone is, the reputation could potentially carry
+into the real world.
+
+It's this balance between the tyranny of the majority and the tyranny of the minority
+and whether any technology can find it which interests me.
+
+"How this gets done involves a careful design.":/design.html

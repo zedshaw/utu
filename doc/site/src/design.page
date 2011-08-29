@@ -1,0 +1,995 @@
+---
+title: design
+inMenu: true
+directoryName: design
+---
+
+h2. Utu's Design ~_(simpler is better)_~
+
+The design of the Utu protocol is an experiment in alternatives to the overly
+engineered designs from the IETF and the W3C.  It starts from a set of
+theoretical bases and then builds a flexible yet simplified system for routing
+complex data structures to peers connected to Hubs.
+
+The protocol challenges quite a few assumptions about networking, but does it
+for practical purposes.  The decisions made in Utu weren't simply to raise a
+middle-finger to the IETF.  They were made to keep Utu simple without
+sacrificing flexibility and to achieve the goal of a trusted service for peer
+communication.
+
+This document describes the Utu protocol in a mixture of humor, ranting,
+code, and specification language.  It is meant as an entertaining and
+educational work of art that also describes the protocol.  Because of
+this most engineer types will probably scream as their digitized
+thought processes stumble over the rhetoric hiding the real work.  If
+you're this type of person, just go read the code.  There's not much 
+of it.
+
+h2. Challenging Cargo Cults
+
+A lot of the work in Utu is challenging existing cargo cults that
+have become "standards" for no other reason than rampant hysterical
+social pressure.  Typically when someone tells you that you believe
+in a "cargo cult" it's because they want you to believe in their
+cult instead of the competitor's version.  I'm no different, but I'm
+also going to do the next step and give you evidence in the form of
+a functioning system and research results that you can verify to
+form your own opinion.
+
+As an example, take the idea of using a "centralized" rather than
+"decentralized" architecture.  The current cargo cult reaction is that a
+decentralized system (such as P2P file sharing) scales better in the face of
+attacks such as DDoS.  The reasoning goes that if the system is spread out
+across all communicating peers then an attacker cannot flood the network.
+The most touted attack is the "fd exhaust" attack where a client connects
+with thousands of idle or slow connections and eat up the server's
+available file descriptors.
+
+The DDoS resistance stance for decentralized systems is dubious because you
+*cannot* trust all peers in such a system.  While yes you do technically get
+thousands of "servers", nothing prevents a company with similar resources from
+eating away at the P2P network from the inside doing the exact same attacks.
+What's even more evil is now you have an additional insider attacker that is
+implicitly trusted by all peers and can do even more attacks.  Throw in the
+additional complexity of getting this all right and you've got a huge recipe
+for vulnerability.
+
+Centralized systems are considered fragile because there's a "single
+point of failure" vulnerable to all sorts of evil.  In the world of the
+P2P-cargo-cult people simply blindly carve all servers into either
+"decentralized-super-good-tons-of-bandwidth-protected-from-China-And-Russia"
+and "centralized-doomed-to-flood-old-school-Big-Brother-Loving".
+
+The problem with this false dichotomy is two fold:  You can't trust a
+decentralized system, and nothing says I can't use a cluster of hubs as my
+centralized system.  I mean seriously, the whole Utu project is GPL.  You
+don't have to use *my* Utu hubs.  You can start your own, and in fact I'm
+looking to make linking between hubs easy in the same way it is with linking
+between web servers.  The real question is whether people will trust your
+set of Hubs compared with mine?
+
+The first problem of trusting a decentralized system like P2P is
+demonstrated daily when movie and music companies flood these networks with
+fake files, or simply collect information on the peers for later
+litigation.  The primary rule in *all* cryptography and security is once the
+data is on another machine you cannot trust it.  In a decentralized
+encrypted chat system you'd need to invent an incredibly complex shared
+keying system that itself is vulnerable to attack and is difficult to get
+right.
+
+Evidence of this is found in the recent "discovery of huge throttle points
+in the Tor network.":http://cryptogon.com/?p=624 If the
+"Tor":http://tor.eff.org/ folks had studied even an introductory statistics
+course they would have known that a sample of just 15-30% of traffic would
+yield an 85-95% accuracy in most identification tasks.  Since Tor is a
+"decentralized" system it easily falls victim to the rule that you cannot
+trust another computer with your data.  All decentralized systems (and in a
+way centralized systems) have this flaw.  Can't get around it.
+
+A centralized system doesn't get around this flaw in a technical way, but
+instead in a social way.  For better or worse, people can learn to trust a
+smaller group of consistently located systems that are run by a hopefully
+trusted organization.  They know where google is and what it looks like.
+This doesn't mean that centralized systems are more secure, it just means
+they're *easier* to trust (remember, not boolean logic, degrees of effect).
+
+The second misconception is that a "centralized" system means that it's
+architected to be a single monolithic server.  This false assumption is
+based on the latest vogue FUD being slung around about "old-school" protocol
+design that requires a single point of contact for all connected peers.
+It's entirely false that a protocol like Utu cannot also have a group of
+trusted peers handling the load.  It is a hub-peer design after all.
+
+It's this kind of illogical boolean perspective that the Utu protocol tries
+to challenge.  In this case, the Utu design is such that it is "centralized"
+in the control, access and location; but decentralized in interaction.  This
+means that there could 1000 hubs all handling the load and compensating, but
+still controlling which clients are allowed to connect and who they are.
+
+In other words, with Utu you are connecting to the Hub as a trusted peer,
+and there could be any number of trusted peers.
+
+h1. Protocol Features
+
+With a first taste of Utu's flavor you can now appreciate the feature
+mix:
+
+* Encrypted messages using standard NIST or ISO cryptographic algorithms.
+** AES 32-byte (256 bits) symmetric cryptography for message encryption.
+** ECC 32-byte (256 bits) asymmetric cryptography for identity and authentication.
+** SHA256 hashes for all hash operations.
+** 128 bit random nonces rotated on each message.
+** ISO/IEC 11770-3 Mechanism 6 without the Helsinki vulnerability.
+** CCM based encryption with AAD for any unencrypted data.
+** Fortuna PRNG random number generation initialized from the system SPRNG.
+* Consistent directly measured framing format easily read by any computer.
+* Flexible yet efficient data format able to encode any XML or s-expression.
+* Novel routing mechanism that routes messages based on their shallow structure.
+* All data structures are trivial to parse and generate while still being efficient and human readable.
+* Completely open and documented code base freely available under the GPL.
+* A controlled mechanism for sender pays penalties to any peer abusing the network (this is the hate).
+
+In the following sections we'll describe each of these features.  In any
+instance where this document differs from the 
+"official source":http://utuprotocol.info/repos/utu/ then the source will
+be the winner.
+
+h1. Protocol Overview _(opinions for all)_
+
+Traditionally when a protocol is described in an RFC or other standards document
+the protocol is described from the point of view that the standard is official
+rather than a working system.  They attempt to define rather than describe.  In
+practice this works but it isn't an effective way to describe a protocol since
+it leaves too much interpretation.
+
+In the HTTP protocol there's so many sections and contradictory paragraphs that
+anyone can justify nearly any stupidity they've invented.  A good example is the
+"Google Web Accelerator":http://webaccelerator.google.com/.  The GWA ignores 10+
+years of HTTP convention and 90% of the RFC which says a GET request operates
+exactly like a POST request, and instead they pull out one single paragraph to
+justify how GWA operates.  Additionally GWA is effectively a proxy server
+but it ignores requirements to honor client requests exactly, not make
+additional requests, and other proxy trust factors.
+
+Since no English language document could possibly resolve the ambiguities
+this document is a *description* of the protocol, not a specification.
+The specification is the _heavily_ documented Utu source code.  The code
+is written in a very literate style and you can effectively read 3-4 files
+to get the exact specification.
+
+Wherever possible, this document will include code snippets to describe
+the protocol and reference other documents where appropriate.
+
+Another approach for this description is to follow the (more successful)
+method of describing programming languages by starting with the lexical
+base, followed by the grammar, and finally the semantics of the protocol.
+Since the protocol parses text it follows that treating it like a compiler
+is a more consistent and theoretically solid description.
+
+There is a slight intertwining in the protocol where you need to know
+about the framing, lexemes, and grammar for the protocol before you can
+learn about the cryptography, authentication and routing.  These last
+three layers use the previous layers consistently, but you'll first
+learn the bare unencrypted protocol followed by it's encrypted form.
+
+Before you really start to understand the Utu protocol and why it's
+designed in it's particular way you need to understand a few sacred
+cows being turned to coins.
+
+h2. Binary vs. Parsed Protocols
+
+Programmers *love* putting all their lives into two tiny little baskets 
+labeled _true_ and _false_.  When discussing the data formats transmitted
+between two computers these boolean logicians divide all things network
+into either "binary" or "parsed" protocols.  Binary protocols are given
+the naive definition of "anything I can't read" and parsed protocols are
+given the definition "anything I think I can read".
+
+CORBA is a binary protocol that breaks complex data structures down
+into ever more complex nestings of network normalized C structures.
+While the OMG says CORBA is an Object-Oriented protocol, it truly
+maps to what's effectively a C-like data structure of bit fields,
+integers of certain lengths, and so on.  This comes from CORBA's
+very heavily C++ influenced heritage and the odd requirement to
+make C one of the first targetted languages.
+
+However, binary protocols *are* painful because they're very difficult to debug properly.
+You need specialized tools that can decode the protocol, which don't exist when
+you first start to design the protocol.  Classic chicken and egg problem which
+makes bootstrapping your first binary protocol a horrible operation.  They also
+suck because they're difficult to change later to support new data structures.
+
+The binary protocol's advantage its exact size (which means fewer or no buffer
+overflows), and its speed. An additional side effect of the difficulty
+implementing an binary protocol is that it's usually much more accurately
+specified since you need to generate the actual processing and documentation
+from some kind of tool (similar to a parser generator).
+
+Parsed protocol advocates claim that a protocol like HTTP which is 
+touted as being "just a bunch of \r\n lines" which you can "hit with 
+telnet".  This means that anyone can start writing an HTTP server and
+easily figure out from reading simple protocol dumps whether everything
+is functioning correctly.  In theory the parsed protocol is superior
+because the speed loss compared with a binary protocol is offset by
+the developer productivity gained through the parsing simplicity.
+
+_*Simplicity?*_ Have these idiots actually read the HTTP standard? It's like
+reading an obtuse ancient Teutonic myth filled with spelling errors where you
+never know who is talking to whom since characters have 10 names and nothing
+makes sense because you weren't raised in Ancient Germany.  Let's just go over
+the some the lameness that is this paragon of parsed perfection:
+
+* It has 6 ways to frame the protocol: keep-alives, pipelining, chunked encoding, multi-part mime encoding, socket open/close, and header settings.
+* Multiple bizarre encoding methods that no human can possibly read.
+* Puts the burden of file type determination on the server, even though clients end up having to reinterpret the files again.
+* Authentication, authorization, and security are so poorly defined that everyone just does it in their application layer.
+* SSL was written when clients were infinitely less powerful than servers.  Now we have Russia.  Oh dear.
+* Accepts bizarre multi-line strings in the headers which completely violate the myth that it's a cleanly \r\n ended protocol.
+* Ever tried to debug a failing client that uses SSL?  Oh, all that parsing and "human readability" isn't so useful now is it?
+
+Of course real purists will argue that HTTP isn't a good example of a parsed
+protocol, but it is the one that all the new kids try to emulate.  Recent
+examples aren't much better with Stomp, BEEP, SIP, and other similar "just like
+HTTP" protocols coming out with all the same flaws.
+
+h2. A Nuanced Middle Way
+
+The real answer is of course neither of the above advocated solutions but both
+in sparing amounts.  It's not about "binary" vs. "parsed" but rather a question
+of how the protocol is layered to support its purpose.  You might have a mix of
+binary and parsed elements simply because that's what you find in the real
+world.  By employing simple binary elements and clean consistent parsing formats
+that follow compiler design theory (rather than "hacker with telnet theory") you
+get a clean and simple design.
+
+As you read the rest of this document, just assume that the junk you were taught
+about either binary or parsed formatting is bogus.  It's a false dichotomy
+created as an illusion of depth for a problem that's actually solved by a
+slightly different more nuanced approach.
+
+Currently Computer Science is a field with no depth of philosophy.  The majority
+of debates and research in the field focuses on these kinds of arbitrarily
+created distinctions when the real situations could provide much more research
+prosperity.  Simply taking the example of "binary" vs. "parsed" you can see that
+the real problems are much more complex and nuanced, with problems ranging from
+how best to encode data, all the way to how such new technology could influence
+human behavior or even whole societies.
+
+Circling around shallow little binary arguments like this is the research
+equivalent of picking the last piece of cartilage from the back of a dead
+gazelle. 
+
+
+h2. The ISO 7-Layer-Dung-Pile
+
+I'm sure you may have taken a networking course in college and the
+professor tested you on every bizarre nuance of the ISO 7-Layer Protocol
+Stack:
+
+# Physical -- Ethernet (sort of)
+# Data Link -- IP and Ethernet (sort of)
+# Network -- IP (sort of)
+# Transport -- TCP (sort of)
+# Session -- Application
+# Presentation -- Application
+# Application -- Application
+
+Experts finally started questioning this model after they realized its
+only use is producing difficult test questions on exams in MBA weed-out
+courses.  The problem is that the standard was designed by telecom companies
+without any real knowledge of packet switched networking.  If you read the
+history, it was created by the European dominated OSI group in the 1980's as
+a way to standardize how the world *should* communicate.
+
+That word *should* is important, since it didn't describe anything that actually
+existed.  This is different from most early IETF protocols which describe *how*
+the world communicated already.  IETF protocols were thus usually easier to
+implement and test since there's almost a working functioning reference
+implementation.
+
+Building the OSI abstract model based on nothing in particular results in
+some wicked flaws:
+
+* Too many redundant error reporting and correction levels.
+* Lower layers bleed into the upper layers.
+* The dictates of layers 5-7 completely violate usability standards used today.
+* The protocol assumes a strict circuit based rather than packet based routing and connection mechanism.
+* It has poor disconnect recovery due to the bleeding of lower layers.  Connection goes down and so does the whole stack.
+* The Application layer (final layer) is overbearing and antiquated considering modern operating system and UI trends.
+* The security model is at multiple layers and assumes that clients have much less power than servers (which is the same with most TCP/IP stacks too).
+* The layers are so oddly named and vague that nobody can ever remember their
+ordering or purpose save the most ardent pedants.
+
+When I describe protocol design to newbies, I tell them to go look at the
+ISO model with these flaws in mind. Then I explain that what they're
+effectively designing in their application is layer 5-7.  The difference is
+how you approach the problem of the last 3 layers.
+
+
+h2. Framing, Security, Parsing, Semantics
+
+Rather than the 7-layer model, I advocate a "Framing, Security, Parsing,
+Semantics" model (going from top to bottom):
+
+* Semantics -- The human and computational meaning of the parsing results.
+* Parsing -- Translating the transmitted data according to a lexical and grammatical specification creating machine processable data structures.
+* Security -- Encryption, validation, and authentication, and authorization.
+* Framing -- The *application* level frame for the data being transmitted.
+* Network (TCP/IP) -- The transmission medium (no matter what mechanism).
+
+If we map onto this model the 7-layer burrito we get:
+
+# Physical -- Ethernet (sort of)
+# Data Link -- IP and Ethernet (sort of)
+# Transport -- TCP (sort of)
+# Network -- IP (sort of)
+# Session -- Framing (maybe Security?)
+# Presentation -- Parsing
+# Application -- Semantics (maybe more Security?)
+
+Notice security doesn't really fit on the 7-layers?  In the OSI model
+it's either not clearly defined because encryption was considered
+an evil thing in the 1980's, or it's spread out all over the place
+in a big mess.  Security is an odd cross cutting concern but it is
+still something that you can clearly spread between the layers since
+it's such a large component.  The basic solution is to extend the
+concept of end-to-end-security all the way through the stack.
+
+
+h1. Framing
+
+Just like the frame of a picture or a house, protocols must have a
+structure within which the lexical, semantic, and grammatical elements
+are safely placed.  Framing is the process of setting the boundaries
+of each application level message, and where the message's component
+parts exist.  Currently this is done with either a fully binary
+data structure for all data, or with a parsed protocol that has
+escape clauses with a few rare exceptions.
+
+The real issue in TCP/IP or UDP/IP is that existing framing is designed to frame
+the *IP layer* not the *application layer*.  In TCP/IP the IP packets contain a
+TCP binary header that adds additional routing, packet length, and other frame
+information.  However, this information only applies to the current TCP/IP
+connection and the packets being transmitted.  The application using TCP/IP is
+at the mercy of routers, bridges, firewalls, translation networks, latency, and
+security of the TCP/IP protocol. 
+
+If the application needs to send 10 megabytes of data, it must tell the
+receiving end where the data over the TCP/IP stream begins and ends.  With
+original HTTP 1.0 this was simply "it starts when I open the socket and
+ends when I close".  This actually works pretty well, but doesn't scale when
+the messages are small or require session state maintained between them.
+
+HTTP 1.1 went horribly wrong when it added an insane number of framing
+mechanisms all formatted within mockeries of the original HTTP 1.0
+specification.  Chunked encodings, keep-alives, pipelining, etc. are all
+doing exactly the same thing:  determining the boundary of the messages.
+
+However, the simplest way to bound a message is to simply send an integer.
+That's it.  Just send 2-bytes or 4-bytes of binary data in a network
+neutral format and the receiving end knows all it needs.  It knows the
+exact length of this size specifier, it knows the format (network byte
+order), and then it knows the exact length of the data to come.
+
+Another solution is to send a set of ASCII digits (as advocated by Dan J.
+Bernstein in "netstrings":http://cr.yp.to/proto/netstrings.txt) to specify
+the size.  Utu actually uses this mechanism *inside* the framed message since
+it's a parsed method of pre-sizing strings.  The issue with using this in the
+initial size bytes is it doesn't have a fixed size.  This means it must have a
+max size, be translated or parsed, and can lead to buffer overflows.
+
+The framing in Utu is kept small since it's designed to handle fast
+small messages routed between users.  Utu uses an unsigned short 2-byte
+integer in network byte order as its framing, and *all* messages always
+have this initial binary data.
+
+Finally, a *very* important reason for forcing all peers to declare the
+data they send, and keeping the max they can send small is to prevent DDoS
+attacks.  With HTTP and other parsed stream protocols a client could connect
+and theoretically send gigabytes of header information.  Most web servers
+create weird sliding window buffer schemes to protect against this efficiently.
+The Utu Hub and clients all know exactly how much is sent, and it's limited
+to 64k.  If the a peer doesn't want to handle that much or can't handle it then
+they abort.  End of problem.
+
+
+h1. Parsing
+
+Most protocols are described from the perspective of a hacker
+talking to a server over telnet. They specify myriad sequences of
+interactions between peers in a conversational way.  This is fine
+for simple protocols that have clear single request/response 
+patterns.  For more complicated protocols with long sessions
+this isn't accurate enough.
+
+This method of describing protocols also leads to weird vague
+hand written parsers using illogically structured syntax.  Rather
+than continually boil down the protocol to the simplest logical
+structuring that can work, hackery-telnet-infected-IETF protocols
+are continually built up to satisfy all constituents.
+
+However, there's a very well established method of designing text
+processing systems: compiler design.  It's a theory that has solid
+mathematics behind it, has existed for 30+ years, is logical, easy
+to follow, and actually has *tools*.  Yes, other programs that can
+tell you if your protocol isn't written well or (*gasp*) can tell
+you exactly where any message has an error and how to fix it.
+
+Wouldn't it be great if the _real_ solution to debugging a protocol was to
+simply use a parser that could tell you where any error was and why that was an
+error?  Hell it even works when there's encryption since it just tells you where
+the error happened after decryption.  Beats scanning tons of HTTP headers with
+your lying tired human eyes any day.
+
+There's one slight catch to the proposal to use a parser generated by
+parser generator tools:  you can skip one part of this process by using
+a format similar to s-expressions from the LISP world.  An s-expression
+uses a consistent simplified set of lexical elements and a *very* simple
+set of structuring rules to encode just about any data structure you want.
+It does this without really needing any kind of parser you might use in
+a heavy language like Java or C++.  Instead since the rules are so
+consistent and so simple you *can* write the parser by hand (as demonstrated
+in nearly every LISP book).
+
+h2. Stackish
+
+Back in the day I did a joke XML alternative called "Stackish":/stackish.html
+which converted s-expressions into a FORTH stack based form instead.  This
+simplified the processing even further since a stack based language can
+be parsed by a computer without any effort at all.  Consistency in s-expressions
+removes the need to have a parser generator, and stack organization removes the
+need to maintain intermediate data structures during parsing.  Since it's in
+stack order already you just walk the tree using very simple little rules
+during parsing.
+
+It was a joke, but then when I implemented it I found that it's damn useful.
+Stackish parses at about 2x the speed of the fastest s-expression libraries
+I could find.  It is still human readable, and not totally horrible to look
+at and certainly no worse than the crap shoved into HTTP these days.
+
+Wait there's more:
+
+* You know when you're done parsing the stream since at the end you're at the root of the tree structure.
+* Stackish contains the majority of types you need like floating point, unsigned integers, strings, and BLOBs (binary large object blocks) and any other structuring you'd find in an
+s-expression.
+* The BLOBs are also encoded pre-sized using a format similar to
+DJB's netstrings.
+** This means they act as a validation step, can contain
+arbitrary data of any format, *and* can easily wrap Stackish inside Stackish
+without special case encoding (like CDATA in XML).
+
+With all these advantages it seemed like it might be fun to try and use
+Stackish.
+
+h2. Lexemes
+
+Taken from the original "Stackish paper":/stackish.html I wrote, the
+tokens (lexemes) are very simply:
+
+|_.Token|_.Description|
+|NUMBER|A simple unsigned integer type that's just any series of digits.|
+|FLOAT |A simple floating point type.|
+|STRING|A string is double quotes with anything inside that's 
+not a ".|
+|MARK|Marks a point in the stack that demarcates the boundary for a 
+nested group.|
+|WORD|Marks the root node of a group, with
+the other end being the nearest MARK.|
+|GROUP|Acts as the root node of an anonymous group.|
+|ATTRIBUTE|Assigns an attribute name to the previously processed
+node.  This means that just about anything can be an attribute, unlike in XML.|
+|BLOB|A simple alternate string form that pre-sizes the string contents similar
+to DJB's netstrings.|
+|SPACE|White space is basically ignored.|
+
+These tokens are implemented using Ragel with the following code:
+
+<code>
+  number =  digit+;
+  float  =  ('-' | '+')? digit+ "." digit+;
+  string =  '"' (any -- '"')* '"';
+  start  = "[";
+  word   =  alpha+ (alnum | '-' | '_' | '.' | ':')*;
+  blob   =  "'" digit+ ":" "'";
+  group  =  "]";
+  attrib =  "@" word;
+</code>
+
+This is the Ragel expressions minus the action statements, but
+it's not that different "from the real
+code":http://utuprotocol.info/repos/utu/src/stackish/stackish.rl 
+in the specification.
+
+There are some interesting points you can see in this specification:
+
+# Strings can have anything that's not a " (double-quote).
+## There is no escaping of " since you can just use a BLOB.
+# Only unsigned integers (specifically uint64_t) are supported.
+# Float is simplified not supporting any scientific notation.
+# Words can contain - (dash), _ (underscore), and : (colon) chars.
+formats.
+# BLOBs can be huge since there's no limit on the length specifier.  This is a danger if framing isn't available to bound it.
+
+
+h2. Grammar
+
+With the tokens defined, we can then define the grammar.  Stackish is a
+"FORTH":http://www.forth.org/ or
+"PostScript":http://en.wikipedia.org/wiki/PostScript style stack based data
+language however, so the grammar is almost a direct translation of each token to
+an operation performed on a tree structure.
+
+First off, our "grammar" is specified by the following ragel code:
+
+<code>
+  stackish = (space+ 
+      | number >mark %number 
+      | float >mark %float 
+      | string 
+      | start @start
+      | word >mark %word
+      | blob 
+      | group @group
+      | attrib >mark %attrib)**;
+</code>
+
+_NOTE: This ragel syntax, with >,%,@ meaning call that action at specific times._
+
+Yes, this is all of it.  The rest is simply the code to implement the
+appropriate actions for building the data structures.  This simply tells Ragel
+that a stackish document is a greedy sequence of any lexemes.  At each
+lexeme the parser then calls one of several actions to process either that
+lexeme, or restructure the current tree.
+
+In the above you'll notice that _string_ and _blob_ don't have a set
+of actions after them.  This is because they have their actions embedded
+inside their definitions so that they can carve out their internal data
+easier.  Otherwise _string_ and _blob_ work the same with marking the
+start (>mark) and then calling an action at the end (@string or @blob).
+
+For now you can ignore >mark as just being how the parser starts a lexeme
+for later snapping out of the input string.  In the original "Stackish
+document":/stackish.html I referred to the term "mark" to mean "the start
+of a new group".  In the parser this is the _@start_ action to differentiate
+it from the common _mark_ parsing operation.
+
+Finally, we just cover each operation to complete the grammar specification.
+Read the "original document":/stackish.html to get a more in-depth description
+of how this all works, but you should be able to follow this code taken from the
+Ragel specification. (NOTE: The following code is simplified without error handling so
+that it is easier to read.)
+
+These actions simply push Nodes of the given type onto the current
+tree as children:
+
+<code>
+  action number { push(NUMBER, mark, fpc); }
+  action float { push(FLOAT, mark, fpc); }
+  action string { push(STRING, mark, fpc); }
+  action blob { push(BLOB, mark, fpc); }
+</code>
+
+Then for each of the _word_, _group_, and _attrib_ types there's
+a simple tree processing operation that does the required 
+transform operation:
+
+<code>
+  # Starts a new node with the "current" node as the parent.
+  action start { handle_start(parser); }
+
+  # Moves the parser to start adding children to the current node
+  # after naming it with the given name (thus adding depth).
+  action word { handle_word(parser, PTR_TO(mark), LEN(mark, fpc)); }
+
+  # Exactly the same as word but without a name.
+  action group { handle_group(parser)); }
+
+  # Names the most recent child node with this name.
+  action attrib { handle_attr(parser, PTR_TO(mark), LEN(mark, fpc)); }
+</code>
+
+_NOTE: Need better explanation or demo of how these operations work._
+
+The above structure operations are very simple, with @handle_word@
+being the most complex and @handle_group@ being a single line
+special case of @handle_word@.  All they do is build the correct
+new Node branch for that group type.
+
+That's the entire grammar specification for Utu.  There is more code 
+you can read but this makes up the actual specification for how a
+Stackish document is converted into a tree of Nodes for processing.
+
+h3. Example Parsing
+
+It's difficult to visualize this without an example, so let's say
+you have the following stackish:
+
+<code>
+ [ [ "hello" 123 @id 4.5 @ratio data [ '5:12345' key root 
+</code>
+
+Which demonstrates all the relevant lexemes, so when it's tokenized you have
+this:
+
+<code>
+ [     [     "hello" 123    @id    4.5   @ratio data [    '5:12345' key  root 
+ START START STRING  NUMBER ATTRIB FLOAT ATTRIB WORD START BLOB     WORD ROOT
+</code>
+
+This is then parsed using the given operations from the grammar:
+
+# START group (eventually named root)
+## START child (eventually named data)
+## push "hello"
+## push 123
+## take 123 and name it @id
+## push 4.5
+## take 4.5 and name it @ratio
+## WORD names this _data_
+# back at root
+## START child
+## push BLOB
+## WORD names this _key_
+# back at root
+# WORD names this _root_
+
+This is seriously all there is to stackish.  Since it's already in the right
+order the extent of processing involves nothing more than following the nodes
+for each lexeme and doing the right operation on it.  The final result from
+the above processing is:
+
+* root
+** data
+*** @ratio=4.5
+*** @id=123
+*** "hello"
+** key
+*** '5:12345'
+
+Remember that these are pushed in stack order which is why "hello" is at the
+end.
+
+h2. Payload and Canonicalization
+
+Stackish is designed to be used in an encrypted environment and 
+to support this it has some very strict yet simple canonicalization rules.
+Parsed formats are notoriously difficult to encrypt because they
+can be interpreted by the sender and the receiver differently.
+
+The entire ruleset for the payload structure and how it's
+canonicalized is:
+
+# Each frame contains 2 stackish structures only.
+## The first stackish is an unencrypted but authenticated header.
+## The second stackish is an encrypted payload envelope with tag.
+## The decrypted "opened" envelope contains a single stackish.
+# Both stackish structures are canonicalized.
+## All lexemes have one space after them.
+## Always ends in a single \n newline character.
+## This means the end of a stackish is a " \n".
+# Order matters for every child element, even attributes.
+
+h1. Semantics
+
+"Semantics" in the case of Utu's Stackish protocol have a similar
+problem to that with s-expressions.  Since the "code is data" in
+the protocol, what happens when you send messages depends on the
+messages and what the Hub will do with them.
+
+h2. Routing
+
+The Utu Hub (server) is designed to be very simple but still allow for complex
+interactions.  After trying many different models I implemented what I'm calling
+"structure routing".  Another term for this might be "pattern matching" you'd
+find in Haskell, Erlang, or some LISP variants.  Structure routing works like
+this:
+
+# When a message is sent the Hub matches it against the root node name, and all
+the immediate children.
+## [ [ child1 [ child2 [ root would match root/child1/child2
+# The Hub maintains a routing tree internally that tracks all members (peers)
+interested in that route.
+# The Hub walks the root and children on each message, and when it find the
+terminal node it delivers that message to each registered member.
+
+That's the whole process.  Registering for interest in a particular message
+involves sending a message to the route registration service (see Services
+below) and then you start receiving them.
+
+The only exception is services are also registered in this tree to provide
+operations that members can use to control their Hub session.  In this case
+nobody can register for these routings and trying to will get you booted.
+
+One interesting (or debatable) thing is that you don't have to register to a
+routing to send a message to it.  This is to allow for the various ways that
+peers might publish and subscribe.  Think in terms of a member-to-member message
+like in IM.  If you allow anyone to send then you can use the above routing
+mechanism to support group interaction or members.  With groups everyone
+registers on the same routing.  With member-to-member you just send to a
+standard member "mailbox" and don't actually join it.
+
+
+h2. Services
+
+Services use the routing mechanism to provide ways for the peers to control
+their session with the Hub.  The services provide route registrations,
+membership control, information, data, and anything else people might need in
+their hub.
+
+A sample of available services in the Hub right now are:
+
+<code>
+  Registration registrations[] = {
+    { "[ [ register route ", Hub_route_register_cb },
+    { "[ [ unregister route ", Hub_route_unregister_cb },
+    { "[ [ members route ", Hub_route_members_cb },
+    { "[ [ children route ", Hub_route_children_cb },
+    { "[ [ register member ", Hub_member_register_cb },
+    { "[ [ mendicate member ", Hub_member_mendicate_cb },
+    { "[ [ invite member ", Hub_member_invite_cb },
+    { "[ [ send member ", Hub_member_send_cb },
+    { "[ [ get info ", Hub_info_get_cb },
+    { "[ [ list info ", Hub_info_list_cb },
+    { "[ [ tag info ", Hub_info_tag_cb },
+    { "[ [ ping system ", Hub_system_ping_cb },
+    { NULL, NULL}
+  };
+</code>
+
+All you do to use any of these services is simply send a message to them with
+the data they need.  For example, registering to the Hub is done with:
+
+<code>
+ [ [ [ 
+  [ [ room:help chat
+ register route msg
+</code>
+
+The hub peels off _msg_ since that's stock Utu messaging, follows _route_, then
+_register_ to get to the route/register handler.  That handler is then given the
+message @[ [ room:help chat@ which it then takes and tells the Hub to register
+for this member.
+
+Even right now the existing clients work this way, just registering with the hub
+for very simply routings and nothing more.  They could register for more
+specific routings that have nothing to do with chat.
+
+h2. Members
+
+Membership is currently being worked on.  The goal is for it to complete the
+member services.
+
+h2. Hate
+
+Hate is the main feature that people are fascinated with in Utu since it's
+the method that a Hub uses to throttle misbehaving peers.  It's an odd concept
+not found in other systems that's not even finished in the Hub yet itself.
+
+Hate in Utu is simple:  The Hub sends a peer a challenge they need to answer
+before they can continue talking, with the challenge being some form of 
+difficult cryptographic operation that is guaranteed to take time.
+
+The real difficulty in describing Utu's hate system is that there are two
+sides to the problem.  First there's the cryptographic math that enforces
+the technical side.  Second there's the way this base cryptography is
+used to allow members to control the social network of peers.  This second
+part isn't concrete yet, so we'll only cover the cryptographic basis only.
+
+The Hate challenge is done using a simple SHA256 hash repeatedly until
+a randomly selected number is discovered.  The random number is selected
+within a known range, and has a known component, but otherwise what makes
+it difficult is the fact that the receiver has to repeatedly SHA256.  It's
+done like this:
+
+# Challenger calculates a 128 bit random number this is cut in half to a left
+and right 64 bit number.
+# Challenger takes 1/2 of the random number, and scales it down via % level.
+## val.num.right = val.num.right % level_max
+# Challenger hashes this resulting number with the right side scaled down using
+SHA256.
+# Challenger sends an ECC signed message with: level, left known side, right
+side 0, resulting hash, ECC signature.
+
+The receiver's job is to cycle through all possible numbers of right side up to
+the level until they find the result:
+
+# Receiver takes out the signature, hash, nonce (with right side = 0), and
+level.
+# Validates the ECC signature is valid for the hash.  The prevents just anyone
+from sending an arbitrary challenge.
+# Receiver then goes from 0 to 2^level numbers, performing a SHA256 hash on the
+nonce resulting from the known left and the guessed right sides.
+# Once the matching number is found they've met the challenge, and can return
+the response.
+# Receiver signs their answer hash (must validate this is ok) and returns the
+full nonce with both left and discovered right, the hash, and signature to prove
+they did the work.
+
+At this point the challenger simple needs to verify the signature, and confirm
+that the full nonce returned is the one expected.  Once that's completed they
+know the receiver did the work and they can continue on.
+
+h3. Vulnerabilities
+
+Currently there's a vulnerability in how the ECC signatures might be used.
+The challenger and receiver are only signing the full nonce hash.  This is fine
+for the challenger since this hash is from the challenge nonce.  It's kind of
+stupid for the receiver though since they're just really signing the exact same
+hash.  This may change up later so that they hash just the right side as proof,
+  although it's not too bad since this is an asymmetric signature so they at
+  least prove identity.
+
+h3. Usage In Utu
+
+The hate challenge above will be used by the Hub to make peers pay to slow other
+peers down (hate them), and to make hated peers throttle down as punishment.
+The tricky part is that this portion of Utu's functionality is heavily
+influenced by random social concerns.  There hasn't been a solid design that is
+foolproof and most likely there won't be.  Instead, using this as the
+basis of simple throttling will allow the Utu project to adapt it's social
+control mechanisms as they need to change.
+
+
+h1. Security
+
+The security in Utu is done based on the best practices available, but also
+it's using existing established standards for new uses.  The #1 rule
+when doing security is don't invent your own algorithms.  Utu uses only
+established algorithms for cryptography and authentication, so it *should*
+have a solid foundation.
+
+The problem is you should not trust anything that's not validated and reviewed
+by many people who are qualified to review it.  This is one of the reasons why
+the project is completely open source and GPL.  Hopefully with enough smart
+people looking for holes the protocol will be tight.
+
+I guarantee that there will be security vulnerabilities in Utu for some time
+to come.  This documentation is to give interested people more tools to attack
+Utu and try to find holes.
+
+Don't rely on Utu to keep your traffic secure and safe (which is kind of
+dumb since it's a Hub with a broadcast semantic).
+
+h2. Cryptography
+
+As mentioned in the features section the cryptography used in Utu is nothing
+really fascinating or wild.  It consists of existing known algorithms
+implemented by Tom St. Denis in "LibTomCrypt":http://libtom.org/ rather than
+on my own.  Tom's library has been used extensively in very secure projects and
+commercial products, but again it's open so you can review it yourself.
+
+* Encrypted messages using standard NIST or ISO cryptographic algorithms.
+** AES 32-byte (256 bits) symmetric cryptography for message encryption.
+** ECC 32-byte (256 bits) asymmetric cryptography for identity and authentication.
+** SHA256 hashes for all hash operations.
+** 128 bit random nonces rotated on each message.
+** ISO/IEC 11770-3 Mechanism 6 without the Helsinki vulnerability for
+authentication and key exchange.
+** CCM based encryption with AAD for any unencrypted data.
+** Fortuna PRNG random number generation initialized from the system SPRNG.
+
+The encrypted Stackish payloads are encrypted using Stackish as well in order to
+reduce the number of moving parts in the protocol.  This consistency makes for a
+bit of weirdness since you need to understand Stackish to understand how it's
+encoded when encrypted.  The simplest rule set is the following:
+
+# Stackish canonicalized header is given as the Additional Authenticated Data (AAD) but not
+encrypted.
+# Stackish body is taken and removed from the payload and canonicalized.
+# The CCM encryption process is performed on the AAD header, nonce, and body to
+perform the AES encryption and produce the final tag.
+# The body is discarded and replaced with the newly encrypted envelope.
+## The envelope has the format [ 'X:body' 'X:tag' env so it's easily parsed out.
+
+The decryption process is basically the inverse of this using the raw header
+as-is to validate the AAD and encrypted tag.  The CCM operation validates that
+the header isn't tampered with, the expected nonce was valid, and the body is
+validated and decrypted.  If the tag doesn't match then something in the message
+was altered and the message is discarded with the client disconnected.
+
+h3. Only One Algorithm?
+
+Utu uses algorithms that are established, approved, implemented, and in
+operation with *tons* of governments and corporations. If
+there's an error in how these algorithms are implemented then Utu will be fixed
+and upgraded and all clients will have to upgrade or go to hell.  Keep your
+stuff fixed or go home.
+
+However, if one of the approved algorithms above (like AES, ECC, CCM, etc.) are
+found to have vulnerabilities the world is screwed anyway.  Vulnerabilities in
+these algorithms will mean that *many* other algorithms are also vulnerable and
+could result in nothing short of the implosion of the world.
+
+So, either it's something that can be fixed, and having an enforced upgrade
+policy with the Utu project providing the mendicant to everyone (making upgrades
+easier) *or* we're all screwed anyway and having 10 other vulnerable algorithms
+won't help much.
+
+Anyway, I thought complexity was the root of security problems.  Why would I
+then add 200 algorithms to show off my ability to read a crypto book?  Hell some
+programmers even include broken algorithms just to show off their skills.
+
+It's just better to keep it very simple and vanilla so it's easier to audit.
+
+h2. Authentication
+
+_Taken from the "crypto.c source comments":http://utuprotocol.info/repos/utu/src/protocol/crypto.c to be edited soon._
+
+Utu implements ISO/IEC 11770-3 Mechanism 6 (but NOT the vulnerable
+Helsinki version) for our key exchange and peer authentication.  This
+mechanism is characteristic in that it uses asymmetric crypto only as the
+means of doing mutual authentication and mutual key agreement.  One thing
+that isn't clear in the descriptions is whether the final Nr nonce returned
+by _I_ should be sent unencrypted, encrypted with Er, or encrypted with the
+agreed key(s).  I've decided to send it back as Er(Nr) but I'm not sure of
+the security of this.  In the sequence of operations Nr stays encrypted
+throughout and this keeps it from being seen.
+
+ R: N,PubR 
+ I: PubI,Er(I,Kir,Ni) 
+ R: Ei(R,Kri,Ni,Nr) 
+ I: Er(Nr)
+
+The notation is _R_ for "receiver" and _I_ for "initiator" rather than A and B.
+This is particularly important as, if we reverse the roles then the
+initiator is able to force the receiver to both do the encryption work *and*
+waste precious randomness.  With the roles situated this way the initiator
+is forced to perform encryption first and waste randomness making it
+slightly more difficult to cause the receiver to do wasted work.
+
+An additional benefit is that if the client doesn't behave well (like
+closing the connection right before sending the last message) then the
+server can officially ban them since they had to create a valid message with
+their private key.  The only time when someone could cause another client to
+be blocked in this case is if they can get that person's private key and
+forge messages, which means the key is compromised and therefore should be
+blocked anyway.
+
+After the final Nr nonce is sent back and verified both parties use the
+given random keys as their send/recv keys.  This is done rather than hashing
+the two for a common key in order to avoid requiring a hashing algorithm to
+be required by the library.
+
+*WARNING:*  The first message _R_ sends includes a temporary randomly generated
+nonce that is publicly viewable.  This is needed so that the LTC shared
+ECC key won't be vulnerable for that first encryption.  This nonce is only
+used for that one first message and is discarded for the encrypted nonce 
+after that.
+
+Additionally, the nonces are 16 bytes but represented as two uint64_t integers.
+The two nonces that are exchanged encrypted are simply incremented for each
+message after that and are never retransmitted.
+
+Finally, the public keys are obviously being exchanged in public, it's up to the
+person using the library to present the user with a key fingerprint they can use
+to make sure that they are connecting to the right receiver, and you should
+store known keys to detect later tampering.  When you use the utumendicant
+program you are given these fingerprints to display.
+
+
+h2. Authorization
+
+Utu currently allows anyone to connect, but future versions will have strict
+authorization and potentially reject connections from people who are labeled as
+trouble makers.
+
+h2. Auditing
+
+Currently Utu logs all of the state transitions in the internal state
+machines and all message routing activity.  Since the system is open
+and not performing any real authentication it doesn't do any more
+audit logging than that.
+
+h1. Known Vulnerabilities (Jun 6 2007)
+
+This lists the currently known or purposeful vulnerabilities in
+the protocol:
+
+# Right now the message sequence IDs in the header start at 1.  This is for
+debugging the Hub in the early stages and will be changed later.
+# No version is given by the clients when they connect so it'll need to be added
+soon to block old or vulnerable clients.
+# Each message received does *not* have the full key/id of the sender.  This
+will change when full membership is implemented.
+# Members can pick any name they want and join randomly.  It's not invite only
+yet so people can play with it and test.

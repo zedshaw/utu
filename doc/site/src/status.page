@@ -1,0 +1,39 @@
+---
+title: status
+inMenu: true
+directoryName: status
+---
+h2. Status ~_(are we there yet?)_~
+
+The site is almost filled with all the important information.  The 
+main missing piece of documentation is the protocol implementation.
+I'll be getting that up pretty soon.
+
+There's a working server with the initial features needed to
+connect encrypted and identified as well as join rooms, find
+out who's in the rooms, and list out the rooms.  This implements
+enough features to do the majority of chat activities found on 
+IRC.
+
+You can access the server by going to myutu.name on port 10000.
+The myutu.name DNS is an alias to the same server and will eventually
+host a web interface to people's reputations and identities.  For
+now it's a handy alias for savingtheinternetwithhate.com.
+
+The "download instructions":/download.html currently describes how
+to play with the "iHate":http://ihate.rubyforge.org/ client for Mac OSX
+and how to build everything from scratch so you can run the simple
+text clients and the Tk example client.
+
+h2. Next Features -- 22 May 2007
+
+I'm currently working on the following features:
+
+* Getting information on people.
+* Private messaging people.
+* Unique names for everyone on the server.
+* An idle ping managed by the mendicant to keep idle timeout killers away.
+
+I'm hoping to have this feature set up for Mike to work into the client.
+
+

@@ -1,0 +1,10 @@
+---
+title: docs
+inMenu: true
+directoryName: docs
+---
+h2. Documentation ~_(go deeper)_~
+
+* "Ruby RDoc generated documentation":/ruby/rdoc/index.html
+* "C Server API Documentation":/server/doxygen/html/index.html
+
